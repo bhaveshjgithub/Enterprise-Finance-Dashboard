@@ -1,0 +1,218 @@
+<div class="max-w-[1400px] mx-auto p-4 space-y-6 animate-fade-in">
+
+  <!-- 🔄 GLOBAL LOADING -->
+  @if (state.isLoading()) {
+    <div class="fixed inset-0 bg-white/70 flex items-center justify-center z-50">
+      <i class="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i>
+    </div>
+  }
+
+  <!-- 🏢 BRANCH FILTER -->
+  <div class="flex flex-wrap gap-3">
+    @for (inst of institutions; track inst.code) {
+      <button
+        (click)="setInstitution(inst.code, inst.mult)"
+        class="px-5 py-2.5 rounded-lg font-semibold text-sm border transition-all shadow-sm"
+        [class.bg-blue-600]="activeInst() === inst.code"
+        [class.text-white]="activeInst() === inst.code"
+        [class.border-transparent]="activeInst() === inst.code"
+        [class.bg-white]="activeInst() !== inst.code"
+        [class.text-slate-700]="activeInst() !== inst.code"
+        [class.border-slate-300]="activeInst() !== inst.code">
+        {{ inst.name }}
+      </button>
+    }
+  </div>
+
+  <!-- 🎯 FILTER BAR -->
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <div class="flex flex-col lg:flex-row gap-4 items-end">
+
+      <!-- SEARCH -->
+      <div class="flex-1 relative">
+        <label class="text-xs font-bold text-slate-500 mb-1 block">Search</label>
+
+        <input
+          type="text"
+          [formControl]="searchName"
+          (input)="onSearchInput($event)"
+          class="w-full px-3 py-2 border rounded-lg"
+          placeholder="Search user..."
+        />
+
+        @if (showSearchSuggestions() && searchSuggestions().length > 0) {
+          <ul class="absolute w-full bg-white border mt-1 rounded shadow z-50 max-h-48 overflow-auto">
+            @for (sug of searchSuggestions(); track sug) {
+              <li
+                (click)="selectSearchSuggestion(sug)"
+                class="px-3 py-2 hover:bg-blue-50 cursor-pointer">
+                {{ sug }}
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <!-- DATE -->
+      <input type="date" [formControl]="startDate" class="border px-3 py-2 rounded">
+      <input type="date" [formControl]="endDate" class="border px-3 py-2 rounded">
+
+      <!-- ACTION -->
+      <button (click)="applyFilters()" class="bg-slate-800 text-white px-4 py-2 rounded">
+        Apply
+      </button>
+
+      <button (click)="clearFilters()" class="bg-slate-200 px-4 py-2 rounded">
+        Clear
+      </button>
+
+    </div>
+  </div>
+
+  <!-- 📊 KPI -->
+  <div class="grid md:grid-cols-3 gap-6">
+
+    <div class="bg-white p-6 rounded-xl shadow border">
+      <p class="text-xs text-slate-400">Income</p>
+      <h2 class="text-2xl font-bold text-green-600">
+        ₹{{ displayIncome() | number:'1.0-0' }}
+      </h2>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow border">
+      <p class="text-xs text-slate-400">Expense</p>
+      <h2 class="text-2xl font-bold text-red-600">
+        ₹{{ displayExpense() | number:'1.0-0' }}
+      </h2>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow border">
+      <p class="text-xs text-slate-400">Net</p>
+      <h2 class="text-2xl font-bold text-blue-600">
+        ₹{{ displayNet() | number:'1.0-0' }}
+      </h2>
+    </div>
+
+  </div>
+
+  <!-- 🧾 TABLE -->
+  <div class="bg-white rounded-xl shadow border overflow-hidden">
+
+    <div class="p-4 border-b flex justify-between items-center">
+      <h3 class="font-bold">Transactions</h3>
+
+      <div class="flex gap-2">
+        <button (click)="api.txFilter.set('ALL')" class="px-3 py-1 border rounded text-xs">All</button>
+        <button (click)="api.txFilter.set('INCOME')" class="px-3 py-1 border rounded text-xs">Income</button>
+        <button (click)="api.txFilter.set('EXPENSE')" class="px-3 py-1 border rounded text-xs">Expense</button>
+      </div>
+    </div>
+
+    <table class="w-full text-sm">
+
+      <thead class="bg-slate-50 text-xs">
+        <tr>
+          <th class="p-3">Date</th>
+          <th class="p-3">Name</th>
+          <th class="p-3">Desc</th>
+          <th class="p-3">Branch</th>
+          <th class="p-3">Type</th>
+          <th class="p-3 text-right">Amount</th>
+          <th class="p-3 text-center">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        @if (api.filteredTransactions().length === 0) {
+          <tr>
+            <td colspan="7" class="text-center py-6 text-slate-400">
+              No data
+            </td>
+          </tr>
+        }
+
+        @for (tx of api.filteredTransactions(); track tx.transactionReference) {
+          <tr class="border-b hover:bg-slate-50">
+
+            <td class="p-3">{{ tx.transactionDate }}</td>
+
+            <td class="p-3 font-semibold">{{ tx.referenceName }}</td>
+
+            <td class="p-3">
+              {{ tx.description }}
+              <div class="text-xs text-slate-400">{{ tx.transactionReference }}</div>
+            </td>
+
+            <td class="p-3">
+              {{ tx.branch === 'MIXED_BRANCHES' ? 'VARIOUS' : tx.branch }}
+            </td>
+
+            <td class="p-3">
+              <span
+                class="px-2 py-1 text-xs rounded"
+                [class.bg-green-100]="tx.type==='INCOME'"
+                [class.bg-red-100]="tx.type==='EXPENSE'">
+                {{ tx.type }}
+              </span>
+            </td>
+
+            <td class="p-3 text-right font-bold"
+              [class.text-green-600]="tx.type==='INCOME'"
+              [class.text-red-600]="tx.type==='EXPENSE'">
+              ₹{{ tx.amount | number:'1.0-0' }}
+            </td>
+
+            <td class="p-3 text-center">
+
+              @if (tx.transactionDate === todayDate && state.isAdmin()) {
+                <button
+                  (click)="openEditModal(tx)"
+                  class="text-blue-600 text-xs">
+                  Edit
+                </button>
+              } @else {
+                <span class="text-xs text-slate-400">Locked</span>
+              }
+
+            </td>
+
+          </tr>
+        }
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- ✏️ MODAL -->
+  @if (editingTx()) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center">
+
+      <div class="bg-white p-6 rounded-xl w-[500px] space-y-4">
+
+        <h3 class="font-bold">Edit Transaction</h3>
+
+        <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+
+          <input formControlName="referenceName" class="w-full border p-2 rounded mb-2">
+          <input formControlName="department" class="w-full border p-2 rounded mb-2">
+          <input formControlName="description" class="w-full border p-2 rounded mb-2">
+          <input formControlName="amount" type="number" class="w-full border p-2 rounded mb-2">
+
+          <div class="flex justify-end gap-2">
+            <button type="button" (click)="closeEditModal()">Cancel</button>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">
+              Save
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+  }
+
+</div>
